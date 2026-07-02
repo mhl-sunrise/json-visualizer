@@ -7,11 +7,12 @@
 import { LIMITS, PARSE_DEBOUNCE, SAMPLE, ZOOM } from './constants.js';
 import { buildGraph } from './graph-model.js';
 import { layout } from './graph-layout.js';
-import { renderGraph } from './graph-renderer.js';
+import { renderGraph, coerce } from './graph-renderer.js';
 import { Viewport } from './viewport.js';
+import { ValueEditor } from './value-editor.js';
 import { ThemeManager } from './theme.js';
 import { JsonEditor } from './editor.js';
-import { initBurgerMenu, initMobileTabs, initResizer } from './ui-chrome.js';
+import { initBurgerMenu, initMobileTabs, initResizer, initFullscreen } from './ui-chrome.js';
 import { registerServiceWorker } from './pwa.js';
 
 /** @param {string} id */
@@ -44,6 +45,58 @@ byId('zoomIn').addEventListener('click', () => viewport.zoomByCenter(ZOOM.STEP))
 byId('zoomOut').addEventListener('click', () => viewport.zoomByCenter(1 / ZOOM.STEP));
 byId('fit').addEventListener('click', () => viewport.fit());
 
+/* ---- In-place value editor (live) ---- */
+const valueEditor = new ValueEditor({
+  input: /** @type {HTMLInputElement} */ (byId('valueEditor')),
+  viewport,
+  // live: resize the node AND sync the JSON text, keeping the input focused.
+  // We must not call render() here (it would rebuild the tree and drop the
+  // editor's node references) — so the text is patched in place.
+  onInput: (text) => {
+    const t = valueEditor.target;
+    if (!t) return;
+    t.row.value = displayValue(t.row.kind, text);
+    const result = coerce(t.row.kind, text, t.row.raw);
+    valueEditor.markInvalid(!result.ok);
+    if (result.ok) writeValueToText(t.keys, result.value); // live-sync the JSON editor
+    drawDiagram(false);
+  },
+  onCommit: (text, fromBlur) => {
+    const t = valueEditor.target;
+    if (!t) return;
+    const result = coerce(t.row.kind, text, t.row.raw);
+    if (!result.ok) {
+      if (fromBlur) { valueEditor.close(); render(false); } // leaving with invalid → revert
+      else valueEditor.markInvalid(true);                   // Enter with invalid → keep editing
+      return;
+    }
+    const { keys, raw } = t;
+    valueEditor.close();
+    if (result.value !== raw) commitValueEdit(keys, result.value);
+    else render(false); // no change → rebuild clean from text
+  },
+  onCancel: () => { valueEditor.close(); render(false); },
+});
+// keep the overlay input aligned while panning/zooming
+viewport.onChange = () => { if (valueEditor.target) valueEditor.reposition(); };
+
+/** Collect the paths of every node that has children (i.e. is collapsible). */
+function collapsiblePaths(node, acc = []) {
+  if (node.children.length > 0) acc.push(node.path);
+  node.children.forEach((c) => collapsiblePaths(c, acc));
+  return acc;
+}
+byId('collapseAll').addEventListener('click', () => {
+  if (!state.tree) return;
+  state.collapsed = new Set(collapsiblePaths(state.tree));
+  drawDiagram(true);
+});
+byId('expandAll').addEventListener('click', () => {
+  if (!state.tree) return;
+  state.collapsed.clear();
+  drawDiagram(true);
+});
+
 /* ---- Status helpers ---- */
 /**
  * @param {boolean} ok
@@ -67,6 +120,12 @@ function friendlyError(err) {
 let debounceId;
 
 /**
+ * Diagram state kept between renders so collapse toggles can re-draw without
+ * re-parsing. `collapsed` holds node paths; it persists across edits.
+ */
+const state = { tree: /** @type {import('./graph-model.js').GraphNode|null} */ (null), collapsed: new Set() };
+
+/**
  * @param {boolean} ok      Valid state (controls red vs neutral styling)
  * @param {string} message
  */
@@ -84,6 +143,7 @@ function render(fit) {
   dom.lineCount.textContent = `${raw ? raw.split('\n').length : 0} lines`;
 
   if (!raw.trim()) {
+    state.tree = null;
     dom.svg.textContent = '';
     viewport.setContent(null);
     dom.nodeCount.textContent = '0 nodes';
@@ -94,6 +154,7 @@ function render(fit) {
   }
 
   if (raw.length > LIMITS.MAX_INPUT) {
+    state.tree = null;
     const mb = (LIMITS.MAX_INPUT / 1_000_000).toFixed(0);
     setStatus(false, `Input exceeds ${mb} MB`);
     showNotice(false, `⚠ Input too large to render (over ${mb} MB).`);
@@ -102,8 +163,8 @@ function render(fit) {
 
   try {
     const { root, count, truncated } = buildGraph(JSON.parse(raw));
-    layout(root);
-    viewport.setContent(renderGraph(dom.svg, root));
+    state.tree = root;
+    drawDiagram(fit);
 
     dom.nodeCount.textContent = `${count} ${count === 1 ? 'node' : 'nodes'}${truncated ? ' (truncated)' : ''}`;
     dom.emptyState.hidden = true;
@@ -113,12 +174,85 @@ function render(fit) {
     } else {
       clearNotice();
     }
-    if (fit) viewport.fit();
   } catch (err) {
+    state.tree = null;
     const message = friendlyError(err);
     setStatus(false, message);
     showNotice(false, `⚠ ${message}`);
   }
+}
+
+/**
+ * (Re)draw the current tree applying collapse state. Called both after a parse
+ * and on every collapse toggle — the latter re-lays-out and re-renders without
+ * re-parsing, and preserves the current pan/zoom.
+ * @param {boolean} fit
+ */
+function drawDiagram(fit) {
+  if (!state.tree) return;
+  const isCollapsed = (node) => state.collapsed.has(node.path);
+  layout(state.tree, isCollapsed);
+  const editing = valueEditor.target
+    ? { path: valueEditor.target.node.path, rowIndex: valueEditor.target.rowIndex }
+    : null;
+  viewport.setContent(renderGraph(dom.svg, state.tree, {
+    collapsed: state.collapsed,
+    onToggle: (path) => {
+      if (state.collapsed.has(path)) state.collapsed.delete(path);
+      else state.collapsed.add(path);
+      drawDiagram(false); // keep viewport where it is
+    },
+    onCommit: commitValueEdit,   // boolean toggle
+    onEditStart,                 // string/number → open live overlay editor
+    editing,
+  }));
+  if (fit) viewport.fit();
+  if (valueEditor.target) valueEditor.reposition();
+}
+
+/** Display text for a value being live-edited (drives node width). */
+function displayValue(kind, text) {
+  return kind === 'string' ? `"${text}"` : text;
+}
+
+/** Begin editing a value: open the overlay input and re-render to hide the value. */
+function onEditStart(node, rowIndex, row, keys, valueSpan) {
+  const color = getComputedStyle(valueSpan).fill;
+  valueEditor.open(node, rowIndex, row, keys, color);
+  drawDiagram(false); // re-render so the underlying value text is hidden
+}
+
+/**
+ * Persist a value edited in the diagram back into the JSON text (type already
+ * coerced by the renderer), then re-render from the single source of truth.
+ * @param {string[]} keys  Key path to the value ([] = the root primitive)
+ * @param {*} value
+ */
+/**
+ * Patch a value into the JSON editor text (no re-parse/re-render). Used for
+ * live sync while editing a value in the diagram.
+ * @param {string[]} keys
+ * @param {*} value
+ */
+function writeValueToText(keys, value) {
+  try {
+    if (keys.length === 0) {
+      editor.value = JSON.stringify(value, null, 2);
+      return;
+    }
+    const data = JSON.parse(editor.value);
+    let target = data;
+    for (let i = 0; i < keys.length - 1; i++) target = target[keys[i]];
+    target[keys[keys.length - 1]] = value;
+    editor.value = JSON.stringify(data, null, 2);
+  } catch {
+    /* editor text somehow unparseable — ignore */
+  }
+}
+
+function commitValueEdit(keys, value) {
+  writeValueToText(keys, value);
+  render(false); // rebuild from the updated text; collapse + viewport preserved
 }
 
 /** Debounced re-render triggered by editor edits. */
@@ -131,6 +265,7 @@ function scheduleRender() {
 const editor = new JsonEditor({
   textarea: /** @type {HTMLTextAreaElement} */ (byId('editor')),
   highlight: byId('highlight'),
+  gutter: byId('gutter'),
   onChange: scheduleRender,
 });
 
@@ -149,6 +284,7 @@ byId('formatBtn').addEventListener('click', () => {
 });
 byId('clearBtn').addEventListener('click', () => {
   editor.value = '';
+  state.collapsed.clear();
   editor.focus();
   render(false);
 });
@@ -162,6 +298,7 @@ initMobileTabs({
   onShow: (pane) => { if (pane === 'graph') requestAnimationFrame(() => viewport.fit()); },
 });
 initResizer({ divider: byId('divider'), editorPane: dom.editorPane, workspace: dom.workspace });
+initFullscreen({ button: byId('fullscreenBtn') });
 
 /* ---- PWA ---- */
 registerServiceWorker();

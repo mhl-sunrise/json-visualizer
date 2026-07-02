@@ -40,3 +40,12 @@ test('layout returns the same root for chaining', () => {
   const { root } = buildGraph({ a: 1 });
   assert.equal(layout(root), root);
 });
+
+test('collapsed nodes are treated as leaves (children not placed)', () => {
+  const { root } = buildGraph({ parent: { child: { x: 1 } } });
+  const parent = root.children[0];
+  // collapse `parent` — its subtree should not be laid out
+  layout(root, (n) => n.path === parent.path);
+  assert.equal(typeof parent.top, 'number', 'collapsed node itself is placed');
+  assert.equal(parent.children[0].top, undefined, 'hidden child is not placed');
+});

@@ -9,43 +9,51 @@ import { LAYOUT } from './constants.js';
 
 /** @typedef {import('./graph-model.js').GraphNode} GraphNode */
 
+/** Extra header width reserved for the collapse toggle on parent nodes. */
+const TOGGLE_PAD = 22;
+
 /**
- * Measure a node (and its subtree) to set `width` and `height`.
+ * Measure a node (and its visible subtree) to set `width` and `height`.
  * @param {GraphNode} node
+ * @param {(node: GraphNode) => boolean} isCollapsed
  */
-function measure(node) {
+function measure(node, isCollapsed) {
   let maxLen = node.title.length + 2;
   for (const row of node.rows) {
     const len = (row.key ? row.key.length + 2 : 0) + row.value.length;
     if (len > maxLen) maxLen = len;
   }
-  node.width = Math.max(LAYOUT.MIN_WIDTH, Math.round(maxLen * LAYOUT.CHAR_W + LAYOUT.PAD_X * 2));
+  const pad = node.children.length ? TOGGLE_PAD : 0;
+  node.width = Math.max(LAYOUT.MIN_WIDTH, Math.round(maxLen * LAYOUT.CHAR_W + LAYOUT.PAD_X * 2) + pad);
   node.height = LAYOUT.HEAD_H + node.rows.length * LAYOUT.ROW_H;
-  node.children.forEach(measure);
+  if (!isCollapsed(node)) node.children.forEach((c) => measure(c, isCollapsed));
 }
 
 /**
- * Group nodes by depth.
+ * Group visible nodes by depth (collapsed subtrees are skipped).
  * @param {GraphNode} node
  * @param {Record<number, GraphNode[]>} map
+ * @param {(node: GraphNode) => boolean} isCollapsed
  */
-function collectByDepth(node, map) {
+function collectByDepth(node, map, isCollapsed) {
   (map[node.depth] ||= []).push(node);
-  node.children.forEach((child) => collectByDepth(child, map));
+  if (!isCollapsed(node)) node.children.forEach((child) => collectByDepth(child, map, isCollapsed));
 }
 
 /**
  * Lay out the tree in place. Mutates each node with x/top/width/height.
+ * Collapsed nodes are treated as leaves (their subtree is hidden).
  * @param {GraphNode} root
+ * @param {(node: GraphNode) => boolean} [isCollapsed]
  * @returns {GraphNode} the same root, for chaining
  */
-export function layout(root) {
-  measure(root);
+export function layout(root, isCollapsed = () => false) {
+  measure(root, isCollapsed);
 
   // Column x-offsets from the widest node at each depth.
   /** @type {Record<number, GraphNode[]>} */
   const byDepth = {};
-  collectByDepth(root, byDepth);
+  collectByDepth(root, byDepth, isCollapsed);
 
   /** @type {Record<number, number>} */
   const columnX = {};
@@ -60,7 +68,7 @@ export function layout(root) {
   let cursorY = 0;
   const place = (node) => {
     node.x = columnX[node.depth];
-    if (node.children.length === 0) {
+    if (node.children.length === 0 || isCollapsed(node)) {
       node.top = cursorY;
       cursorY += node.height + LAYOUT.V_GAP;
     } else {

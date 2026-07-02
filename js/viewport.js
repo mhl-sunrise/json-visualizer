@@ -24,6 +24,9 @@ export class Viewport {
     this.content = null;
     this.view = { x: 40, y: 60, scale: 1 };
 
+    /** Optional callback fired on any pan/zoom (used to keep overlays aligned). */
+    this.onChange = null;
+
     /** @type {Map<number, {x: number, y: number}>} */
     this.pointers = new Map();
     this.pinchDistance = 0;
@@ -44,6 +47,17 @@ export class Viewport {
       this.content.setAttribute('transform', `translate(${x},${y}) scale(${scale})`);
     }
     this.onScaleChange?.(this.view.scale);
+    this.onChange?.();
+  }
+
+  /**
+   * Project a point from content (group) coordinates to canvas-relative pixels.
+   * @param {number} gx
+   * @param {number} gy
+   * @returns {{x: number, y: number}}
+   */
+  project(gx, gy) {
+    return { x: this.view.x + gx * this.view.scale, y: this.view.y + gy * this.view.scale };
   }
 
   /**

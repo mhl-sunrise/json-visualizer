@@ -27,7 +27,6 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">◈</span>
       <div class="brand-text">
         <span class="brand-name">JSON Diagram</span>
         <span class="brand-sub">Editor &amp; Visualizer</span>
@@ -46,6 +45,17 @@
         <button id="formatBtn" class="btn" role="menuitem" type="button">Format</button>
         <button id="clearBtn" class="btn" role="menuitem" type="button">Clear</button>
       </div>
+
+      <button id="fullscreenBtn" class="btn btn--icon" type="button" title="Full screen" aria-label="Full screen">
+        <svg class="icon icon-fs-open" viewBox="0 0 24 24" width="17" height="17" fill="none"
+          stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 9V5a1 1 0 0 1 1-1h4M20 9V5a1 1 0 0 0-1-1h-4M4 15v4a1 1 0 0 0 1 1h4M20 15v4a1 1 0 0 1-1 1h-4"/>
+        </svg>
+        <svg class="icon icon-fs-close" viewBox="0 0 24 24" width="17" height="17" fill="none"
+          stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 4v4a1 1 0 0 1-1 1H4M15 4v4a1 1 0 0 0 1 1h4M9 20v-4a1 1 0 0 0-1-1H4M15 20v-4a1 1 0 0 1 1-1h4"/>
+        </svg>
+      </button>
 
       <button id="themeBtn" class="btn btn--icon" type="button" title="Toggle theme" aria-label="Toggle theme">
         <svg class="icon icon-moon" viewBox="0 0 24 24" width="17" height="17" fill="none"
@@ -82,6 +92,7 @@
       </div>
       <div class="editor-wrap">
         <div class="code-stack">
+          <div class="gutter" aria-hidden="true"><div class="gutter-inner" id="gutter"></div></div>
           <pre class="code-highlight" aria-hidden="true"><code id="highlight"></code></pre>
           <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"
             autocorrect="off" wrap="soft" placeholder="Paste or type JSON here…"
@@ -107,6 +118,19 @@
         <button class="btn btn--icon" id="zoomIn" type="button" title="Zoom in" aria-label="Zoom in">+</button>
         <div class="sep sep--v" aria-hidden="true"></div>
         <button class="btn btn--icon" id="fit" type="button" title="Fit to screen" aria-label="Fit to screen">⤢</button>
+        <div class="sep sep--v" aria-hidden="true"></div>
+        <button class="btn btn--icon" id="collapseAll" type="button" title="Collapse all" aria-label="Collapse all">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 5l4 4 4-4"/><path d="M8 19l4-4 4 4"/>
+          </svg>
+        </button>
+        <button class="btn btn--icon" id="expandAll" type="button" title="Expand all" aria-label="Expand all">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 9l4-4 4 4"/><path d="M8 15l4 4 4-4"/>
+          </svg>
+        </button>
       </div>
 
       <div class="canvas" id="canvas">
@@ -115,6 +139,8 @@
           <div class="empty-icon">◈</div>
           <p>Your diagram will appear here.</p>
         </div>
+        <input id="valueEditor" class="value-editor" type="text" spellcheck="false"
+          autocomplete="off" aria-label="Edit value" hidden />
       </div>
     </section>
   </main>

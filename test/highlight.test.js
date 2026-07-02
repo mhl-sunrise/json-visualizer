@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { highlightJSON } from '../js/highlight.js';
+import { highlightJSON, addIndentGuides } from '../js/highlight.js';
 
 test('tokenises each JSON value type with the right class', () => {
   const html = highlightJSON('{"n": 1, "s": "x", "b": true, "z": null}');
@@ -27,4 +27,23 @@ test('escapes HTML so embedded markup cannot inject (XSS safety)', () => {
 
 test('escapes ampersands', () => {
   assert.match(highlightJSON('{"a": "x & y"}'), /x &amp; y/);
+});
+
+test('addIndentGuides wraps one guide span per 2-space level', () => {
+  // 4 spaces -> 2 guide spans; the rest of the line is preserved
+  const out = addIndentGuides('    "id": 1');
+  const guides = out.match(/<span class="ind">/g) || [];
+  assert.equal(guides.length, 2);
+  assert.ok(out.includes('"id": 1'));
+});
+
+test('addIndentGuides leaves unindented lines untouched', () => {
+  assert.equal(addIndentGuides('{'), '{');
+});
+
+test('addIndentGuides does not change the visible character width', () => {
+  // strip tags -> text content must equal the original line
+  const line = '      "deep": true';
+  const stripped = addIndentGuides(line).replace(/<[^>]+>/g, '');
+  assert.equal(stripped, line);
 });

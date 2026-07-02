@@ -17,6 +17,8 @@ import { LAYOUT, LIMITS } from './constants.js';
  * @property {string} value  Rendered value text
  * @property {boolean} port   True when the row links to a child node
  * @property {string} cls     Token class for colouring the value
+ * @property {('string'|'number'|'boolean')} [kind]  Editable primitive type (absent = read-only)
+ * @property {*} [raw]        The underlying primitive value (for editing)
  */
 
 /**
@@ -24,6 +26,8 @@ import { LAYOUT, LIMITS } from './constants.js';
  * @property {number} id
  * @property {number} depth
  * @property {string} title
+ * @property {string} path       Stable identity used for collapse state
+ * @property {string[]} keys     Key sequence from the root to this node's data
  * @property {Row[]} rows
  * @property {GraphNode[]} children
  * @property {Row} [parentRow]  The parent row this node hangs off (set on children)
@@ -84,17 +88,21 @@ export function buildGraph(data, { maxNodes = LIMITS.MAX_NODES, maxDepth = LIMIT
    * @param {unknown} value
    * @param {string} title
    * @param {number} depth
+   * @param {string} path   Stable identity for collapse state (e.g. "$/author")
+   * @param {string[]} keys Key sequence from the root to this value
    * @returns {GraphNode}
    */
-  const build = (value, title, depth) => {
+  const build = (value, title, depth, path, keys) => {
     count++;
     /** @type {GraphNode} */
-    const node = { id: count - 1, depth, title, rows: [], children: [] };
+    const node = { id: count - 1, depth, title, path, keys, rows: [], children: [] };
     const t = typeOf(value);
 
     if (t !== 'object' && t !== 'array') {
       const { text, cls } = formatValue(value);
-      node.rows.push({ key: '', value: text, port: false, cls });
+      const row = { key: '', value: text, port: false, cls };
+      if (t !== 'null') { row.kind = t; row.raw = value; }
+      node.rows.push(row);
       return node;
     }
 
@@ -114,7 +122,7 @@ export function buildGraph(data, { maxNodes = LIMITS.MAX_NODES, maxDepth = LIMIT
 
       const vt = typeOf(val);
       if (vt === 'object' || vt === 'array') {
-        const child = build(val, key, depth + 1);
+        const child = build(val, key, depth + 1, `${path}/${key}`, [...keys, key]);
         const size = vt === 'array'
           ? `[${/** @type {unknown[]} */ (val).length}]`
           : `{${Object.keys(/** @type {object} */ (val)).length}}`;
@@ -125,7 +133,9 @@ export function buildGraph(data, { maxNodes = LIMITS.MAX_NODES, maxDepth = LIMIT
         node.children.push(child);
       } else {
         const { text, cls } = formatValue(val);
-        node.rows.push({ key, value: text, port: false, cls });
+        const row = { key, value: text, port: false, cls };
+        if (vt !== 'null') { row.kind = vt; row.raw = val; }
+        node.rows.push(row);
       }
     }
 
@@ -135,7 +145,7 @@ export function buildGraph(data, { maxNodes = LIMITS.MAX_NODES, maxDepth = LIMIT
     return node;
   };
 
-  const root = build(data, typeOf(data) === 'array' ? 'root []' : 'root {}', 0);
+  const root = build(data, 'root', 0, '$', []);
   return { root, count, truncated };
 }
 

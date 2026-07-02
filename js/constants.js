@@ -52,9 +52,6 @@ export const STORAGE = Object.freeze({
 /** Theme colours mirrored to the browser chrome (<meta name="theme-color">). */
 export const THEME_COLOR = Object.freeze({ dark: '#0d1117', light: '#f6f8fa' });
 
-/** Responsive breakpoint — must match the CSS media query. */
-export const MOBILE_BREAKPOINT = 720;
-
 /** Service worker script path. */
 export const SW_PATH = 'sw.js';
 

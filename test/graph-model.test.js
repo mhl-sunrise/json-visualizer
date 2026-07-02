@@ -27,7 +27,7 @@ test('formatValue quotes strings, labels null, and truncates', () => {
 test('buildGraph builds root, rows, and child links', () => {
   const { root, count, truncated } = buildGraph({ name: 'a', nested: { x: 1 }, list: [1, 2] });
   assert.equal(truncated, false);
-  assert.equal(root.title, 'root {}');
+  assert.equal(root.title, 'root');
   assert.equal(count, countNodes(root));
 
   // primitive row
@@ -42,8 +42,38 @@ test('buildGraph builds root, rows, and child links', () => {
   }
 });
 
-test('buildGraph labels an array root and empty containers', () => {
-  assert.equal(buildGraph([]).root.title, 'root []');
+test('buildGraph assigns stable, hierarchical paths for collapse tracking', () => {
+  const { root } = buildGraph({ a: { b: { c: 1 } }, list: [{ x: 1 }] });
+  assert.equal(root.path, '$');
+  const a = root.children.find((c) => c.title === 'a');
+  assert.equal(a.path, '$/a');
+  assert.equal(a.children[0].path, '$/a/b');
+  const list = root.children.find((c) => c.title === 'list');
+  assert.equal(list.children[0].path, '$/list/0');
+});
+
+test('primitive rows carry kind + raw for editing; null and ports do not', () => {
+  const { root } = buildGraph({ s: 'x', n: 3, b: true, z: null, child: { a: 1 } });
+  const rowFor = (k) => root.rows.find((r) => r.key === k);
+
+  assert.deepEqual({ kind: rowFor('s').kind, raw: rowFor('s').raw }, { kind: 'string', raw: 'x' });
+  assert.deepEqual({ kind: rowFor('n').kind, raw: rowFor('n').raw }, { kind: 'number', raw: 3 });
+  assert.deepEqual({ kind: rowFor('b').kind, raw: rowFor('b').raw }, { kind: 'boolean', raw: true });
+  assert.equal(rowFor('z').kind, undefined);          // null is not editable
+  assert.equal(rowFor('child').port, true);           // object row is a port
+  assert.equal(rowFor('child').kind, undefined);      // ports are not editable
+});
+
+test('nodes carry the key path to their data', () => {
+  const { root } = buildGraph({ a: { b: 1 }, list: [{ x: 1 }] });
+  assert.deepEqual(root.keys, []);
+  assert.deepEqual(root.children.find((c) => c.title === 'a').keys, ['a']);
+  assert.deepEqual(root.children.find((c) => c.title === 'list').children[0].keys, ['list', '0']);
+});
+
+test('buildGraph labels the root and empty containers', () => {
+  assert.equal(buildGraph([]).root.title, 'root');
+  assert.equal(buildGraph({}).root.title, 'root');
   assert.equal(buildGraph({}).root.rows[0].value, 'empty {}');
   assert.equal(buildGraph([]).root.rows[0].value, 'empty []');
 });

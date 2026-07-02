@@ -39,6 +39,32 @@ export function initBurgerMenu({ burger, menu }) {
 }
 
 /**
+ * Wire the full-screen toggle. Hides the button on browsers without the
+ * Fullscreen API (e.g. iOS Safari).
+ * @param {{ button: HTMLElement }} refs
+ */
+export function initFullscreen({ button }) {
+  const root = document.documentElement;
+  if (!root.requestFullscreen) {
+    button.hidden = true;
+    return;
+  }
+
+  button.addEventListener('click', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else root.requestFullscreen().catch(() => {});
+  });
+
+  document.addEventListener('fullscreenchange', () => {
+    const on = !!document.fullscreenElement;
+    root.classList.toggle('is-fullscreen', on);
+    const label = on ? 'Exit full screen' : 'Full screen';
+    button.setAttribute('aria-label', label);
+    button.title = label;
+  });
+}
+
+/**
  * Wire the mobile JSON/Diagram tab switcher.
  * @param {{ workspace: HTMLElement, tabs: NodeListOf<HTMLElement>, onShow?: (pane: string) => void }} refs
  */

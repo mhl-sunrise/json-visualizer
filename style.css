@@ -7,25 +7,20 @@
   --panel-2: #1c2230;
   --panel-3: #232b3a;
   --border: #2a3038;
-  --border-soft: #21262d;
   --text: #e6edf3;
   --text-2: #adbac7;
   --muted: #7d8590;
   --accent: #58a6ff;
-  --accent-soft: rgba(88, 166, 255, 0.14);
   --ok: #3fb950;
   --err: #f85149;
-  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
 
   --canvas-bg: #0b0f16;
   --canvas-dot: #1a2130;
 
   --node-bg: #1c2230;
-  --node-border: #313a4b;
+  --node-border: var(--border); /* all structural borders share one colour */
   --node-head: #232b3a;
-  --node-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
-  --row-sep: #262d3a;
+  --row-sep: var(--border);
   --key: #7ee787;
   --val-str: #a5d6ff;
   --val-num: #ffa657;
@@ -33,6 +28,8 @@
   --val-null: #768390;
   --head-text: #8b98a8;
   --edge: #3d4658;
+  --port: #9aa4b0;
+  --indent-guide: #2f3641;
 }
 
 :root[data-theme="light"] {
@@ -41,25 +38,20 @@
   --panel-2: #f0f3f6;
   --panel-3: #e7ecf1;
   --border: #d5dbe1;
-  --border-soft: #e6eaef;
   --text: #1f2328;
   --text-2: #424a53;
   --muted: #6b7480;
   --accent: #0969da;
-  --accent-soft: rgba(9, 105, 218, 0.10);
   --ok: #147029;
   --err: #bc1420;
-  --shadow: 0 8px 24px rgba(31, 35, 40, 0.12);
-  --shadow-sm: 0 1px 4px rgba(31, 35, 40, 0.10);
 
   --canvas-bg: #eef1f5;
   --canvas-dot: #d3dae2;
 
   --node-bg: #ffffff;
-  --node-border: #d5dbe1;
+  --node-border: var(--border); /* all structural borders share one colour */
   --node-head: #f2f5f8;
-  --node-shadow: none;
-  --row-sep: #eaeef2;
+  --row-sep: var(--border);
   --key: #0550ae;
   --val-str: #0a7d33;
   --val-num: #953800;
@@ -67,6 +59,8 @@
   --val-null: #a0a8b0;
   --head-text: #57606a;
   --edge: #c2cad3;
+  --port: #aab1ba;
+  --indent-guide: #e2e7ed;
 }
 
 * { box-sizing: border-box; }
@@ -124,14 +118,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 }
 
 .brand { display: flex; align-items: center; gap: 11px; }
-.logo {
-  color: #fff;
-  font-size: 16px;
-  width: 30px; height: 30px;
-  display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--accent), #7c5cff);
-  border-radius: 8px;
-}
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
 .brand-name { font-weight: 650; font-size: 14px; letter-spacing: 0.2px; }
 .brand-sub { font-size: 11px; color: var(--muted); }
@@ -163,8 +149,6 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .btn:hover { background: var(--panel-3); border-color: var(--muted); }
 .btn:active { transform: translateY(1px); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.btn--ghost { background: transparent; }
-.btn--ghost:hover { background: var(--panel-2); }
 
 .btn--icon {
   width: 34px; height: 34px;
@@ -180,6 +164,10 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .icon { display: block; }
 :root[data-theme="dark"] .icon-sun { display: none; }
 :root[data-theme="light"] .icon-moon { display: none; }
+
+/* Full-screen icon swaps with fullscreen state */
+:root:not(.is-fullscreen) .icon-fs-close { display: none; }
+:root.is-fullscreen .icon-fs-open { display: none; }
 
 /* Status pill — matches button shape */
 .status {
@@ -272,22 +260,34 @@ body.resizing-h { cursor: col-resize; user-select: none; }
 /* Editor — highlighted overlay behind a transparent textarea */
 .editor-wrap { flex: 1; position: relative; display: flex; min-height: 0; }
 .code-stack { position: relative; flex: 1; min-height: 0; overflow: hidden; }
+/* gray line at the left edge of the vertical scrollbar (only when it's shown),
+   matching the pane divider. --sbw is the measured scrollbar width. */
+.code-stack.has-vscroll::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; right: var(--sbw, 12px);
+  width: 1px;
+  background: var(--border);
+  pointer-events: none;
+  z-index: 3;
+}
 
 .code-highlight,
 #editor {
   position: absolute;
   inset: 0;
   margin: 0;
-  padding: 16px 18px;
+  padding: 8px 18px 16px calc(var(--gutter-w, 40px) + 16px);
   font-family: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
   font-size: 13px;
   line-height: 1.65;
   tab-size: 2;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  word-break: break-word;
+  white-space: pre-wrap;      /* wrap long lines instead of horizontal scroll */
+  overflow-wrap: anywhere;
   border: 0;
 }
+/* one block per source line so the gutter can match wrapped line heights */
+.cl { display: block; min-height: 1.65em; }
 
 .code-highlight {
   z-index: 0;
@@ -298,15 +298,58 @@ body.resizing-h { cursor: col-resize; user-select: none; }
 }
 .code-highlight code { font: inherit; color: inherit; }
 
+/* Indentation guides (VS Code style) — one thin line per 2-space level,
+   drawn as a background so the layout width is unchanged. */
+.ind {
+  display: inline-block;
+  width: 2ch;
+  height: 1.65em;
+  vertical-align: top;
+  background: linear-gradient(to right, var(--indent-guide) 0, var(--indent-guide) 1px, transparent 1px);
+}
+
 #editor {
   z-index: 1;
   resize: none;
   outline: none;
-  overflow-y: auto;
+  overflow: auto;
   background: transparent;
   color: transparent;
   caret-color: var(--accent);
 }
+
+/* Line-number gutter with fold controls */
+.gutter {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: var(--gutter-w, 40px);
+  z-index: 2;
+  overflow: hidden;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  pointer-events: none;
+  user-select: none;
+}
+.gutter-inner {
+  padding-top: 8px;
+  font-family: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  will-change: transform;
+}
+.gln { position: relative; min-height: 1.65em; padding-right: 6px; text-align: right; overflow: hidden; }
+.gln-fold {
+  position: absolute; left: 3px; top: 0;
+  width: 16px; height: 1.65em;  /* pinned to the first row of (possibly wrapped) lines */
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; line-height: 1;
+  color: var(--text-2);
+  cursor: pointer; pointer-events: auto;
+}
+.gln-fold:hover { color: var(--accent); }
+.gln-fold--empty { visibility: hidden; pointer-events: none; cursor: default; }
 #editor::placeholder { color: var(--muted); }
 #editor::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
 
@@ -323,7 +366,8 @@ body.resizing-h { cursor: col-resize; user-select: none; }
 
 .error-bar {
   position: absolute;
-  left: 12px; right: 12px; bottom: 12px;
+  /* right: clear the ~12px scrollbar + its 1px border + a small gap */
+  left: calc(var(--gutter-w, 40px) + 12px); right: 22px; bottom: 12px;
   background: color-mix(in srgb, var(--err) 14%, var(--panel));
   border: 1px solid color-mix(in srgb, var(--err) 45%, transparent);
   color: var(--err);
@@ -390,11 +434,44 @@ body.resizing-h { cursor: col-resize; user-select: none; }
 /* =========================================================
    SVG node styling
    ========================================================= */
-.node-rect { fill: var(--node-bg); stroke: var(--node-border); stroke-width: 1; }
+.node-rect { fill: var(--node-bg); }
 .node-head-bg { fill: var(--node-head); }
+.node-border { fill: none; stroke: var(--node-border); stroke-width: 1; }
 .edge { fill: none; stroke: var(--edge); stroke-width: 1.6; }
 .row-sep { stroke: var(--row-sep); stroke-width: 1; }
-.port-dot { fill: var(--accent); }
+.port-dot { fill: var(--port); }
+.port-dot--collapsed { fill: var(--muted); }
+
+/* Editable values in the diagram */
+.editable { cursor: text; }
+.editable--boolean { cursor: pointer; }
+
+/* Seamless in-place value editor — an HTML input floating over the canvas.
+   Looks identical to the value text (no box); colour is set inline to match. */
+.value-editor {
+  position: absolute;
+  z-index: 10;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
+  color: var(--text);
+  caret-color: var(--accent);
+  box-sizing: border-box;
+  white-space: pre;
+}
+.value-editor.invalid { color: var(--err); }
+
+/* Collapse / expand toggle on parent nodes */
+.node-toggle { cursor: pointer; }
+.node-toggle:focus { outline: none; }
+/* no visible circle — the disc is a transparent hit area (so hover/cursor work) */
+.toggle-bg { fill: transparent; pointer-events: all; }
+.toggle-icon { stroke: var(--text-2); stroke-width: 1.6; stroke-linecap: round; }
+.node-toggle:hover .toggle-icon,
+.node-toggle:focus-visible .toggle-icon { stroke: var(--text); }
 .node-title { fill: var(--head-text); font-weight: 600; }
 .mono {
   font-family: "JetBrains Mono", "SF Mono", "Fira Code", Consolas, monospace;
