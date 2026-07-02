@@ -29,6 +29,17 @@ export const ZOOM = Object.freeze({
 /** Debounce for re-parsing while typing (ms). */
 export const PARSE_DEBOUNCE = 120;
 
+/**
+ * Safety limits that keep the app responsive on pathological input.
+ * Beyond these the diagram is truncated (never frozen).
+ */
+export const LIMITS = Object.freeze({
+  MAX_NODES: 4000,          // stop building/rendering past this many nodes
+  MAX_DEPTH: 300,           // guard against stack overflow on deep nesting
+  MAX_INPUT: 5_000_000,     // reject inputs larger than ~5 MB
+  HIGHLIGHT_MAX: 60_000,    // skip syntax highlighting above this length
+});
+
 /** Sidebar resize bounds (percent of workspace width). */
 export const SIDEBAR = Object.freeze({ MIN: 15, MAX: 60, DEFAULT: 25 });
 

@@ -1,9 +1,10 @@
 /* Service worker — offline support for JSON Diagram (PWA) */
-const CACHE = "json-diagram-v10";
+const CACHE = "json-diagram-v13";
 const ASSETS = [
   "./",
   "./index.html",
   "./style.css",
+  "./robots.txt",
   "./manifest.webmanifest",
   "./icons/icon.svg",
   "./icons/icon-192.png",

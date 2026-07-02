@@ -4,8 +4,8 @@
  * pipeline as the user types.
  */
 
-import { PARSE_DEBOUNCE, SAMPLE, ZOOM } from './constants.js';
-import { buildTree, countNodes } from './graph-model.js';
+import { LIMITS, PARSE_DEBOUNCE, SAMPLE, ZOOM } from './constants.js';
+import { buildGraph } from './graph-model.js';
 import { layout } from './graph-layout.js';
 import { renderGraph } from './graph-renderer.js';
 import { Viewport } from './viewport.js';
@@ -66,6 +66,19 @@ function friendlyError(err) {
 /* ---- Render pipeline ---- */
 let debounceId;
 
+/**
+ * @param {boolean} ok      Valid state (controls red vs neutral styling)
+ * @param {string} message
+ */
+function showNotice(ok, message) {
+  dom.errorBar.textContent = message;
+  dom.errorBar.classList.toggle('error-bar--warn', ok);
+  dom.errorBar.hidden = false;
+}
+function clearNotice() {
+  dom.errorBar.hidden = true;
+}
+
 function render(fit) {
   const raw = editor.value;
   dom.lineCount.textContent = `${raw ? raw.split('\n').length : 0} lines`;
@@ -75,26 +88,36 @@ function render(fit) {
     viewport.setContent(null);
     dom.nodeCount.textContent = '0 nodes';
     dom.emptyState.hidden = false;
-    dom.errorBar.hidden = true;
+    clearNotice();
     setStatus(true, 'Empty');
     return;
   }
 
-  try {
-    const tree = layout(buildTree(JSON.parse(raw)));
-    viewport.setContent(renderGraph(dom.svg, tree));
+  if (raw.length > LIMITS.MAX_INPUT) {
+    const mb = (LIMITS.MAX_INPUT / 1_000_000).toFixed(0);
+    setStatus(false, `Input exceeds ${mb} MB`);
+    showNotice(false, `⚠ Input too large to render (over ${mb} MB).`);
+    return;
+  }
 
-    const count = countNodes(tree);
-    dom.nodeCount.textContent = `${count} ${count === 1 ? 'node' : 'nodes'}`;
+  try {
+    const { root, count, truncated } = buildGraph(JSON.parse(raw));
+    layout(root);
+    viewport.setContent(renderGraph(dom.svg, root));
+
+    dom.nodeCount.textContent = `${count} ${count === 1 ? 'node' : 'nodes'}${truncated ? ' (truncated)' : ''}`;
     dom.emptyState.hidden = true;
-    dom.errorBar.hidden = true;
     setStatus(true, 'Valid');
+    if (truncated) {
+      showNotice(true, `⚠ Large document — showing the first ${count} nodes.`);
+    } else {
+      clearNotice();
+    }
     if (fit) viewport.fit();
   } catch (err) {
     const message = friendlyError(err);
     setStatus(false, message);
-    dom.errorBar.textContent = `⚠ ${message}`;
-    dom.errorBar.hidden = false;
+    showNotice(false, `⚠ ${message}`);
   }
 }
 

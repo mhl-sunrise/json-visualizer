@@ -63,8 +63,16 @@ export function initMobileTabs({ workspace, tabs, onShow }) {
  * @param {{ divider: HTMLElement, editorPane: HTMLElement, workspace: HTMLElement }} refs
  */
 export function initResizer({ divider, editorPane, workspace }) {
+  /** Apply a width percentage and reflect it on the ARIA separator. */
+  const apply = (pct) => {
+    const value = clamp(pct, SIDEBAR.MIN, SIDEBAR.MAX);
+    editorPane.style.flexBasis = `${value}%`;
+    divider.setAttribute('aria-valuenow', String(Math.round(value)));
+    return value;
+  };
+
   const saved = readStorage(STORAGE.SIDEBAR);
-  if (saved) editorPane.style.flexBasis = saved;
+  if (saved) apply(parseFloat(saved));
 
   let resizing = false;
 
@@ -79,8 +87,7 @@ export function initResizer({ divider, editorPane, workspace }) {
   divider.addEventListener('pointermove', (e) => {
     if (!resizing) return;
     const rect = workspace.getBoundingClientRect();
-    const pct = clamp(((e.clientX - rect.left) / rect.width) * 100, SIDEBAR.MIN, SIDEBAR.MAX);
-    editorPane.style.flexBasis = `${pct}%`;
+    apply(((e.clientX - rect.left) / rect.width) * 100);
   });
 
   const stop = () => {
@@ -92,4 +99,14 @@ export function initResizer({ divider, editorPane, workspace }) {
   };
   divider.addEventListener('pointerup', stop);
   divider.addEventListener('pointercancel', stop);
+
+  // Keyboard operability for the focusable separator.
+  divider.addEventListener('keydown', (e) => {
+    const step = e.key === 'ArrowLeft' ? -2 : e.key === 'ArrowRight' ? 2 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const current = parseFloat(divider.getAttribute('aria-valuenow')) || SIDEBAR.DEFAULT;
+    apply(current + step);
+    writeStorage(STORAGE.SIDEBAR, editorPane.style.flexBasis);
+  });
 }

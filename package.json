@@ -1,0 +1,10 @@
+{
+  "name": "json-diagram",
+  "version": "1.0.0",
+  "description": "JSON editor that visualizes JSON as an interactive node diagram.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node --test"
+  }
+}

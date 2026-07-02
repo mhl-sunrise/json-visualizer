@@ -4,12 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="A fast, offline-capable JSON editor that visualizes JSON as an interactive node diagram." />
+
+  <!-- Privacy: everything runs locally. This policy restricts every network
+       connection to the same origin (connect-src 'self') and forbids loading
+       from or sending to any third party. The app makes no requests at all,
+       so JSON you paste never leaves your browser. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+
   <title>JSON Diagram — Editor & Visualizer</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.webmanifest" />
   <meta name="theme-color" content="#0d1117" id="themeColorMeta" />
   <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -36,7 +44,7 @@
       <div class="actions" id="actions" role="menu">
         <button id="sampleBtn" class="btn" role="menuitem" type="button">Sample</button>
         <button id="formatBtn" class="btn" role="menuitem" type="button">Format</button>
-        <button id="clearBtn" class="btn btn--ghost" role="menuitem" type="button">Clear</button>
+        <button id="clearBtn" class="btn" role="menuitem" type="button">Clear</button>
       </div>
 
       <button id="themeBtn" class="btn btn--icon" type="button" title="Toggle theme" aria-label="Toggle theme">
@@ -84,7 +92,8 @@
     </section>
 
     <div class="divider" id="divider" role="separator" aria-orientation="vertical"
-      aria-label="Resize panels" tabindex="0"></div>
+      aria-label="Resize panels" tabindex="0"
+      aria-valuemin="15" aria-valuemax="60" aria-valuenow="25"></div>
 
     <section class="pane pane--graph" aria-label="Diagram">
       <div class="pane-head pane-head--graph">

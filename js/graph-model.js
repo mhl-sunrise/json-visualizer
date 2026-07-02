@@ -7,7 +7,7 @@
  *   - children: nested object/array nodes, each linked back via `parentRow`
  */
 
-import { LAYOUT } from './constants.js';
+import { LAYOUT, LIMITS } from './constants.js';
 
 /** @typedef {'object'|'array'|'string'|'number'|'boolean'|'null'} JsonType */
 
@@ -63,12 +63,22 @@ export function formatValue(value) {
 }
 
 /**
- * Build the full node graph from parsed JSON data.
- * @param {unknown} data
- * @returns {GraphNode}
+ * @typedef {Object} Graph
+ * @property {GraphNode} root
+ * @property {number} count      Total nodes produced
+ * @property {boolean} truncated True if node/depth limits were hit
  */
-export function buildTree(data) {
-  let nextId = 0;
+
+/**
+ * Build the node graph from parsed JSON, bounded by node/depth budgets so
+ * pathological input truncates rather than freezing or overflowing the stack.
+ * @param {unknown} data
+ * @param {{ maxNodes?: number, maxDepth?: number }} [limits]
+ * @returns {Graph}
+ */
+export function buildGraph(data, { maxNodes = LIMITS.MAX_NODES, maxDepth = LIMITS.MAX_DEPTH } = {}) {
+  let count = 0;
+  let truncated = false;
 
   /**
    * @param {unknown} value
@@ -77,45 +87,56 @@ export function buildTree(data) {
    * @returns {GraphNode}
    */
   const build = (value, title, depth) => {
+    count++;
     /** @type {GraphNode} */
-    const node = { id: nextId++, depth, title, rows: [], children: [] };
+    const node = { id: count - 1, depth, title, rows: [], children: [] };
     const t = typeOf(value);
 
-    if (t === 'object' || t === 'array') {
-      const entries = t === 'array'
-        ? /** @type {unknown[]} */ (value).map((v, i) => [String(i), v])
-        : Object.entries(/** @type {object} */ (value));
-
-      for (const [key, val] of entries) {
-        const vt = typeOf(val);
-        if (vt === 'object' || vt === 'array') {
-          const child = build(val, key, depth + 1);
-          const size = vt === 'array'
-            ? `[${/** @type {unknown[]} */ (val).length}]`
-            : `{${Object.keys(/** @type {object} */ (val)).length}}`;
-          /** @type {Row} */
-          const row = { key, value: size, port: true, cls: 'tok-head' };
-          node.rows.push(row);
-          child.parentRow = row;
-          node.children.push(child);
-        } else {
-          const { text, cls } = formatValue(val);
-          node.rows.push({ key, value: text, port: false, cls });
-        }
-      }
-
-      if (node.rows.length === 0) {
-        node.rows.push({ key: '', value: t === 'array' ? 'empty []' : 'empty {}', port: false, cls: 'tok-null' });
-      }
-    } else {
+    if (t !== 'object' && t !== 'array') {
       const { text, cls } = formatValue(value);
       node.rows.push({ key: '', value: text, port: false, cls });
+      return node;
     }
 
+    // Depth guard: stop recursing but show a placeholder row.
+    if (depth >= maxDepth) {
+      truncated = true;
+      node.rows.push({ key: '', value: '…', port: false, cls: 'tok-null' });
+      return node;
+    }
+
+    const entries = t === 'array'
+      ? /** @type {unknown[]} */ (value).map((v, i) => [String(i), v])
+      : Object.entries(/** @type {object} */ (value));
+
+    for (const [key, val] of entries) {
+      if (count >= maxNodes) { truncated = true; break; }
+
+      const vt = typeOf(val);
+      if (vt === 'object' || vt === 'array') {
+        const child = build(val, key, depth + 1);
+        const size = vt === 'array'
+          ? `[${/** @type {unknown[]} */ (val).length}]`
+          : `{${Object.keys(/** @type {object} */ (val)).length}}`;
+        /** @type {Row} */
+        const row = { key, value: size, port: true, cls: 'tok-head' };
+        node.rows.push(row);
+        child.parentRow = row;
+        node.children.push(child);
+      } else {
+        const { text, cls } = formatValue(val);
+        node.rows.push({ key, value: text, port: false, cls });
+      }
+    }
+
+    if (node.rows.length === 0) {
+      node.rows.push({ key: '', value: t === 'array' ? 'empty []' : 'empty {}', port: false, cls: 'tok-null' });
+    }
     return node;
   };
 
-  return build(data, typeOf(data) === 'array' ? 'root []' : 'root {}', 0);
+  const root = build(data, typeOf(data) === 'array' ? 'root []' : 'root {}', 0);
+  return { root, count, truncated };
 }
 
 /**
