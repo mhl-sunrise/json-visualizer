@@ -24,6 +24,21 @@ npx http-server simple-editor -p 8099 -c-1
 
 Then open <http://localhost:8099>.
 
+## Deploying
+
+Serve the folder as static files over **HTTPS** (required for the service
+worker / PWA). Security response headers are pre-configured:
+
+- `_headers` — read automatically by **Netlify** and **Cloudflare Pages**
+- `vercel.json` — read automatically by **Vercel**
+
+Both set `X-Content-Type-Options: nosniff` and deny framing
+(`X-Frame-Options: DENY` + CSP `frame-ancestors 'none'`) to prevent MIME
+sniffing and clickjacking. A strict Content-Security-Policy is also applied
+in-page via `<meta>` (`connect-src 'self'`), so the app never talks to a third
+party. On a host that supports custom headers you may move that CSP from the
+`<meta>` tag into a real response header for defence-in-depth.
+
 ## Architecture
 
 Plain ES modules, each with a single responsibility:

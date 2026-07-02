@@ -64,7 +64,7 @@ export const SAMPLE = Object.freeze({
   version: 1.2,
   active: true,
   tags: ['editor', 'visualizer', 'json'],
-  author: { name: 'Martin', email: 'martin@develoris.com', verified: true },
+  author: { name: 'Martin', email: 'martin@example.com', verified: true },
   settings: { theme: 'dark', zoom: 1, autoFit: false },
   nodes: [
     { id: 1, type: 'object', children: 3 },

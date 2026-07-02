@@ -1,0 +1,6 @@
+# Security response headers for Netlify and Cloudflare Pages.
+# (This file format is read automatically by both at deploy time.)
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'

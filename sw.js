@@ -1,5 +1,5 @@
 /* Service worker — offline support for JSON Diagram (PWA) */
-const CACHE = "json-diagram-v13";
+const CACHE = "json-diagram-v14";
 const ASSETS = [
   "./",
   "./index.html",
