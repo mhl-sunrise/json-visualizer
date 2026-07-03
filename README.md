@@ -21,7 +21,7 @@ No build step. Serve the folder over HTTP (a service worker requires `http(s)`,
 not `file://`):
 
 ```bash
-npx http-server simple-editor -p 8099 -c-1
+npx http-server -p 8099 -c-1
 ```
 
 Then open <http://localhost:8099>.
