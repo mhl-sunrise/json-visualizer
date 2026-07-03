@@ -176,13 +176,47 @@ export class JsonEditor {
     this.gutter.style.transform = `translateY(${-this.textarea.scrollTop}px)`;
   }
 
-  /** Insert two spaces on Tab (ignored while folded/read-only). */
+  /** Editing keys: Tab inserts two spaces, Enter auto-indents (both ignored while folded/read-only). */
   _handleKeydown(e) {
-    if (this.textarea.readOnly || e.key !== 'Tab') return;
-    e.preventDefault();
+    if (this.textarea.readOnly) return;
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const { selectionStart: start, selectionEnd: end, value } = this.textarea;
+      this.textarea.value = value.slice(0, start) + '  ' + value.slice(end);
+      this.textarea.selectionStart = this.textarea.selectionEnd = start + 2;
+      this._handleInput();
+    } else if (e.key === 'Enter') {
+      this._handleEnter(e);
+    }
+  }
+
+  /**
+   * On Enter, start the new line at the same indentation as the current one,
+   * with one extra level after an opening `{`/`[` (and, when the caret sits
+   * between a bracket pair, push the closing bracket down onto its own line).
+   */
+  _handleEnter(e) {
     const { selectionStart: start, selectionEnd: end, value } = this.textarea;
-    this.textarea.value = value.slice(0, start) + '  ' + value.slice(end);
-    this.textarea.selectionStart = this.textarea.selectionEnd = start + 2;
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const indent = (value.slice(lineStart, start).match(/^[ \t]*/) || [''])[0];
+
+    const prevChar = value[start - 1];
+    const nextChar = value[end];
+    const opensBlock = prevChar === '{' || prevChar === '[';
+    const extra = opensBlock ? '  ' : '';
+
+    e.preventDefault();
+
+    // caret between a matching bracket pair → expand to three lines, closer dedented
+    const betweenPair =
+      (prevChar === '{' && nextChar === '}') || (prevChar === '[' && nextChar === ']');
+    const insert = betweenPair
+      ? '\n' + indent + '  ' + '\n' + indent
+      : '\n' + indent + extra;
+
+    this.textarea.value = value.slice(0, start) + insert + value.slice(end);
+    const caret = start + 1 + indent.length + (betweenPair ? 2 : extra.length);
+    this.textarea.selectionStart = this.textarea.selectionEnd = caret;
     this._handleInput();
   }
 }
